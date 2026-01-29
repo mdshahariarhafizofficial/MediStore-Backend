@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+enum OrderStatus {
+  PLACED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  address       String?
+  role          Role      @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations as per requirements
+  medicines     Medicine[] @relation("SellerMedicines")
+  orders        Order[]    @relation("CustomerOrders")
+  sellerOrders  Order[]    @relation("SellerOrders")
+  reviews       Review[]
+  cartItems     CartItem[]
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  medicines   Medicine[]
+}
+
+model Medicine {
+  id            String    @id @default(cuid())
+  name          String
+  description   String
+  price         Float
+  stock         Int       @default(0)
+  manufacturer  String
+  expiryDate    DateTime
+  categoryId    String
+  sellerId      String
+  imageUrl      String?   @default("https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  category      Category  @relation(fields: [categoryId], references: [id])
+  seller        User      @relation("SellerMedicines", fields: [sellerId], references: [id])
+  orderItems    OrderItem[]
+  reviews       Review[]
+  cartItems     CartItem[]
+}
+
+model CartItem {
+  id         String   @id @default(cuid())
+  userId     String
+  medicineId String
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  user       User     @relation(fields: [userId], references: [id])
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  
+  @@unique([userId, medicineId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique @default(uuid())
+  customerId      String
+  sellerId        String
+  totalAmount     Float
+  shippingAddress String
+  phone           String
+  status          OrderStatus @default(PLACED)
+  paymentMethod   String      @default("COD")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  customer        User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  seller          User        @relation("SellerOrders", fields: [sellerId], references: [id])
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  medicineId String
+  quantity   Int
+  price      Float
+  
+  order      Order    @relation(fields: [orderId], references: [id])
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  
+  @@unique([orderId, medicineId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int      @default(5)
+  comment    String?
+  medicineId String
+  customerId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+  customer   User     @relation(fields: [customerId], references: [id])
+  
+  @@unique([medicineId, customerId])
+}
