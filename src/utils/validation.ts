@@ -43,7 +43,7 @@ export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
-  photoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
+  photoUrl: z.string().url('Please enter a valid URL').nullable().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
