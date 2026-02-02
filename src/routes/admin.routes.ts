@@ -11,7 +11,9 @@ import {
   deleteCategory,
   updateUser,
   deleteUser,
-  resetPassword
+  resetPassword,
+  updateOrderStatus,
+  deleteOrder
 } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -40,7 +42,8 @@ router.get('/categories', getCategories);
 router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
-
+router.patch('/orders/:id/status', updateOrderStatus);
+router.delete('/orders/:id', deleteOrder);
 
 
 export default router;

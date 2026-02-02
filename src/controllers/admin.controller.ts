@@ -464,3 +464,79 @@ export const resetPassword = async (req: AuthRequest, res: Response, next: NextF
     next(error);
   }
 };
+
+export const updateOrderStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const order = await prisma.order.findUnique({ where: { id } });
+
+    if (!order) {
+      return res.status(404).json(
+        ApiResponse.error('Order not found')
+      );
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: { status },
+      include: {
+        items: {
+          include: {
+            medicine: true
+          }
+        },
+        customer: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        seller: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.json(ApiResponse.success('Order status updated successfully', updatedOrder));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json(
+        ApiResponse.error('Order not found')
+      );
+    }
+
+    // First delete order items
+    await prisma.orderItem.deleteMany({
+      where: { orderId: id }
+    });
+
+    // Then delete the order
+    await prisma.order.delete({
+      where: { id }
+    });
+
+    res.json(ApiResponse.success('Order deleted successfully'));
+  } catch (error) {
+    next(error);
+  }
+};
