@@ -18,6 +18,6 @@ router.post('/', validate(orderSchema), createOrder);
 router.get('/', getUserOrders);
 router.get('/:id', getOrderById);
 router.post('/:medicineId/review', validate(reviewSchema), addReview);
-router.put('/:id/cancel', cancelOrder);
+router.patch('/:id/cancel', cancelOrder);
 
 export default router;

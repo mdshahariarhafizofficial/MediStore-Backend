@@ -67,3 +67,6 @@ export const createUserSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
 });
+export const cancelOrderSchema = z.object({
+  reason: z.string().optional(),
+});

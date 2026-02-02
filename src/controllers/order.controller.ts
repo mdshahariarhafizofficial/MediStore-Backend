@@ -277,71 +277,90 @@ export const cancelOrder = async (req: AuthRequest, res: Response, next: NextFun
     const userId = req.user!.id;
     const role = req.user!.role;
 
-    // First, find the order with proper conditions
-    const order = await prisma.order.findFirst({
-      where: {
-        id,
-        ...(role === 'CUSTOMER' ? { customerId: userId } : {}),
-        status: { in: ['PLACED', 'PROCESSING'] }
-      },
+    // Find the order
+    const order = await prisma.order.findUnique({
+      where: { id },
       include: {
-        items: true
+        items: {
+          include: {
+            medicine: true
+          }
+        }
       }
     });
 
     if (!order) {
       return res.status(404).json(
-        ApiResponse.error('Order not found or cannot be cancelled. Only PLACED or PROCESSING orders can be cancelled.')
+        ApiResponse.error('Order not found')
+      );
+    }
+
+    // Check permissions
+    if (role === 'CUSTOMER' && order.customerId !== userId) {
+      return res.status(403).json(
+        ApiResponse.error('You can only cancel your own orders')
+      );
+    }
+
+    // Check if order can be cancelled
+    if (!['PLACED', 'PROCESSING'].includes(order.status)) {
+      return res.status(400).json(
+        ApiResponse.error(`Order cannot be cancelled because it's already ${order.status.toLowerCase()}`)
       );
     }
 
     // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
-
+    await prisma.$transaction(async (tx) => {
+      // Restore stock for each medicine
       for (const item of order.items) {
         await tx.medicine.update({
           where: { id: item.medicineId },
           data: {
-            stock: { increment: item.quantity }
+            stock: {
+              increment: item.quantity
+            }
           }
         });
       }
 
       // Update order status
-      const updatedOrder = await tx.order.update({
+      await tx.order.update({
         where: { id },
         data: {
           status: 'CANCELLED',
           updatedAt: new Date()
-        },
-        include: {
-          items: {
-            include: {
-              medicine: true
-            }
-          },
-          customer: {
-            select: {
-              name: true,
-              email: true
-            }
-          }
         }
       });
+    });
 
-      return updatedOrder;
+    // Get updated order with relations
+    const updatedOrder = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            medicine: true
+          }
+        },
+        customer: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        seller: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
     });
 
     res.json(
-      ApiResponse.success('Order cancelled successfully', result)
+      ApiResponse.success('Order cancelled successfully', updatedOrder)
     );
-  } catch (error: any) {
-    // Handle specific Prisma errors
-    if (error.code === 'P2025') {
-      return res.status(404).json(
-        ApiResponse.error('Order not found')
-      );
-    }
+  } catch (error) {
     next(error);
   }
 };
