@@ -122,6 +122,7 @@ export const getCurrentUser = async (req: AuthRequest, res: Response, next: Next
         role: true,
         phone: true,
         address: true,
+        photoUrl: true,
         isActive: true,
         createdAt: true
       }
