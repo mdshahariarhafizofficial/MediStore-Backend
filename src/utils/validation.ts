@@ -42,7 +42,8 @@ export const reviewSchema = z.object({
 export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional(),
-  address: z.string().optional()
+  address: z.string().optional(),
+  photoUrl: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
 });
 
 export const updateOrderStatusSchema = z.object({

@@ -140,13 +140,20 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const validatedData = updateUserSchema.parse(req.body);
     const userId = req.user!.id;
 
+    // Prepare update data, remove empty strings for optional fields
+    const updateData: any = {};
+    
+    if (validatedData.name !== undefined) updateData.name = validatedData.name;
+    if (validatedData.phone !== undefined) updateData.phone = validatedData.phone || null;
+    if (validatedData.address !== undefined) updateData.address = validatedData.address || null;
+    if (validatedData.photoUrl !== undefined) {
+      // If photoUrl is empty string, set it to null
+      updateData.photoUrl = validatedData.photoUrl || null;
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        name: validatedData.name,
-        phone: validatedData.phone,
-        address: validatedData.address,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -154,6 +161,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
         role: true,
         phone: true,
         address: true,
+        photoUrl: true,
         isActive: true,
         createdAt: true,
       }
