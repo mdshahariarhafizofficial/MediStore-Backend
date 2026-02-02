@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { updateUserStatusSchema } from '../utils/validation';
 import { ApiResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth';
+import bcrypt from 'bcryptjs';
 
 export const getAllUsers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -265,6 +266,200 @@ export const deleteMedicine = async (req: AuthRequest, res: Response, next: Next
     res.json(
       ApiResponse.success('Medicine deleted successfully')
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, address, role } = req.body;
+
+    // Validation
+    if (!name && !phone && !address && !role) {
+      return res.status(400).json(
+        ApiResponse.error('At least one field is required to update')
+      );
+    }
+
+    const user = await prisma.user.findUnique({ 
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            medicines: true,
+            orders: true,
+            reviews: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json(
+        ApiResponse.error('User not found')
+      );
+    }
+
+    // Prevent modifying admin users
+    if (user.role === 'ADMIN') {
+      return res.status(403).json(
+        ApiResponse.error('Cannot modify admin user')
+      );
+    }
+
+    // Build update data
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+    if (role && role !== 'ADMIN') updateData.role = role;
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        address: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            medicines: true,
+            orders: true,
+            reviews: true
+          }
+        }
+      },
+    });
+
+    res.json(ApiResponse.success('User updated successfully', updatedUser));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent deleting yourself
+    if (req.user!.id === id) {
+      return res.status(400).json(
+        ApiResponse.error('Cannot delete your own account')
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      return res.status(404).json(
+        ApiResponse.error('User not found')
+      );
+    }
+
+    // Prevent deleting admin users
+    if (user.role === 'ADMIN') {
+      return res.status(403).json(
+        ApiResponse.error('Cannot delete admin user')
+      );
+    }
+
+    // Use transaction to delete all related data
+    await prisma.$transaction(async (tx) => {
+      // Delete user's cart items
+      await tx.cartItem.deleteMany({ where: { userId: id } });
+      
+      // Delete user's reviews
+      await tx.review.deleteMany({ where: { customerId: id } });
+      
+      // Delete user's medicines (if seller)
+      await tx.medicine.deleteMany({ where: { sellerId: id } });
+      
+      // Get all order IDs where user is customer
+      const customerOrders = await tx.order.findMany({
+        where: { customerId: id },
+        select: { id: true }
+      });
+      
+      // Get all order IDs where user is seller
+      const sellerOrders = await tx.order.findMany({
+        where: { sellerId: id },
+        select: { id: true }
+      });
+      
+      const orderIds = [
+        ...customerOrders.map(order => order.id),
+        ...sellerOrders.map(order => order.id)
+      ];
+      
+      // Delete order items for those orders
+      if (orderIds.length > 0) {
+        await tx.orderItem.deleteMany({
+          where: { orderId: { in: orderIds } }
+        });
+      }
+      
+      // Delete customer orders
+      await tx.order.deleteMany({ where: { customerId: id } });
+      
+      // Delete seller orders
+      await tx.order.deleteMany({ where: { sellerId: id } });
+      
+      // Finally delete the user
+      await tx.user.delete({ where: { id } });
+    });
+
+    res.json(ApiResponse.success('User deleted successfully'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    // Validate new password
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json(
+        ApiResponse.error('Password must be at least 6 characters')
+      );
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+
+    if (!user) {
+      return res.status(404).json(
+        ApiResponse.error('User not found')
+      );
+    }
+
+    // Prevent resetting admin password
+    if (user.role === 'ADMIN') {
+      return res.status(403).json(
+        ApiResponse.error('Cannot reset admin user password')
+      );
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+
+    res.json(ApiResponse.success('Password reset successfully'));
   } catch (error) {
     next(error);
   }

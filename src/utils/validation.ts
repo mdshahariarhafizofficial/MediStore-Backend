@@ -44,6 +44,7 @@ export const updateUserSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   photoUrl: z.string().url('Please enter a valid URL').nullable().optional(),
+  role: z.enum(['CUSTOMER', 'SELLER']).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -52,4 +53,17 @@ export const updateOrderStatusSchema = z.object({
 
 export const updateUserStatusSchema = z.object({
   isActive: z.boolean()
+});
+
+export const resetPasswordSchema = z.object({
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export const createUserSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.enum(['CUSTOMER', 'SELLER']),
+  phone: z.string().optional(),
+  address: z.string().optional(),
 });

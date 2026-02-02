@@ -8,11 +8,14 @@ import {
   getCategories,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
+  updateUser,
+  deleteUser,
+  resetPassword
 } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { updateUserStatusSchema } from '../utils/validation';
+import { resetPasswordSchema, updateUserSchema, updateUserStatusSchema } from '../utils/validation';
 
 const router = express.Router();
 
@@ -21,6 +24,9 @@ router.use(authenticate, authorize('ADMIN'));
 // User management
 router.get('/users', getAllUsers);
 router.patch('/users/:id/status', validate(updateUserStatusSchema), updateUserStatus);
+router.put('/users/:id', validate(updateUserSchema), updateUser);
+router.delete('/users/:id', deleteUser);
+router.post('/users/:id/reset-password', validate(resetPasswordSchema), resetPassword); 
 
 // Order management
 router.get('/orders', getAllOrders);
@@ -34,5 +40,7 @@ router.get('/categories', getCategories);
 router.post('/categories', createCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
+
+
 
 export default router;
