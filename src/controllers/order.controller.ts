@@ -270,3 +270,78 @@ export const addReview = async (req: AuthRequest, res: Response, next: NextFunct
     next(error);
   }
 };
+
+export const cancelOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    // First, find the order with proper conditions
+    const order = await prisma.order.findFirst({
+      where: {
+        id,
+        ...(role === 'CUSTOMER' ? { customerId: userId } : {}),
+        status: { in: ['PLACED', 'PROCESSING'] }
+      },
+      include: {
+        items: true
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json(
+        ApiResponse.error('Order not found or cannot be cancelled. Only PLACED or PROCESSING orders can be cancelled.')
+      );
+    }
+
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+
+      for (const item of order.items) {
+        await tx.medicine.update({
+          where: { id: item.medicineId },
+          data: {
+            stock: { increment: item.quantity }
+          }
+        });
+      }
+
+      // Update order status
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          updatedAt: new Date()
+        },
+        include: {
+          items: {
+            include: {
+              medicine: true
+            }
+          },
+          customer: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      return updatedOrder;
+    });
+
+    res.json(
+      ApiResponse.success('Order cancelled successfully', result)
+    );
+  } catch (error: any) {
+    // Handle specific Prisma errors
+    if (error.code === 'P2025') {
+      return res.status(404).json(
+        ApiResponse.error('Order not found')
+      );
+    }
+    next(error);
+  }
+};
