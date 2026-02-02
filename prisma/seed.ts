@@ -26,6 +26,7 @@ async function main() {
       role: Role.ADMIN,
       phone: '+8801234567890',
       address: '123 Admin Street, Dhaka, Bangladesh',
+      photoUrl: 'https://i.pravatar.cc/300?img=1',
       isActive: true
     }
   });
@@ -62,6 +63,7 @@ async function main() {
       role: Role.SELLER,
       phone: '+8801234567891',
       address: '456 Seller Road, Chittagong, Bangladesh',
+      photoUrl: 'https://i.pravatar.cc/300?img=2',
       isActive: true
     }
   });
@@ -78,6 +80,7 @@ async function main() {
       role: Role.CUSTOMER,
       phone: '+8801234567892',
       address: '789 Customer Lane, Sylhet, Bangladesh',
+      photoUrl: 'https://i.pravatar.cc/300?img=3',
       isActive: true
     }
   });
