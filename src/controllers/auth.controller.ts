@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { registerSchema, loginSchema } from '../utils/validation';
 import { ApiResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth';
+import { updateUserSchema } from '../utils/validation';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -128,6 +129,38 @@ export const getCurrentUser = async (req: AuthRequest, res: Response, next: Next
 
     res.json(
       ApiResponse.success('User retrieved successfully', user)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const validatedData = updateUserSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: validatedData.name,
+        phone: validatedData.phone,
+        address: validatedData.address,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        address: true,
+        isActive: true,
+        createdAt: true,
+      }
+    });
+
+    res.json(
+      ApiResponse.success('Profile updated successfully', updatedUser)
     );
   } catch (error) {
     next(error);
