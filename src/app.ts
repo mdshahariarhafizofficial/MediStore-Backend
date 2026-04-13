@@ -7,15 +7,28 @@ import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
 import sellerRoutes from './routes/seller.routes';
 import adminRoutes from './routes/admin.routes';
+import aiRoutes from './routes/ai.routes';
 import errorHandler from './middleware/errorHandler';
 
 dotenv.config();
 
 const app = express();
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+  'https://medistore-backend-nfz3.onrender.com'
+].filter(Boolean);
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -27,6 +40,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
